@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>意思決定ログ可視化ゲーム</title>
+  <style>
+    :root{
+      --bg:#111418;
+      --panel:#1b2027;
+      --panel-2:#232a33;
+      --text:#eef2f7;
+      --muted:#a9b3c1;
+      --accent:#7bdff2;
+      --accent2:#b2f7ef;
+      --danger:#ff8fa3;
+      --good:#9ef01a;
+      --line:#343d49;
+      --shadow:0 10px 30px rgba(0,0,0,.25);
+      --radius:18px;
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Yu Gothic",sans-serif;
+      background:linear-gradient(180deg,#0f1216 0%, #151a20 100%);
+      color:var(--text);
+      min-height:100vh;
+      padding:24px;
+    }
+
+    .app{
+      max-width:1100px;
+      margin:0 auto;
+      display:grid;
+      grid-template-columns: 1.25fr .95fr;
+      gap:20px;
+    }
+
+    .card{
+      background:linear-gradient(180deg,var(--panel) 0%, #171c22 100%);
+      border:1px solid rgba(255,255,255,.04);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .section{
+      padding:22px;
+    }
+
+    .header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      margin-bottom:10px;
+    }
+
+    .title{
+      font-size:28px;
+      font-weight:700;
+      letter-spacing:.02em;
+      margin:0;
+    }
+
+    .sub{
+      color:var(--muted);
+      line-height:1.65;
+      font-size:14px;
+      margin:8px 0 0;
+    }
+
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(123,223,242,.12);
+      color:var(--accent);
+      font-size:12px;
+      font-weight:700;
+      border:1px solid rgba(123,223,242,.18);
+      white-space:nowrap;
+    }
+
+    .progress-wrap{
+      margin-top:18px;
+    }
+
+    .progress-top{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      color:var(--muted);
+      font-size:13px;
+      margin-bottom:8px;
+    }
+
+    .progress{
+      width:100%;
+      height:10px;
+      background:#0f1318;
+      border-radius:999px;
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,.04);
+    }
+
+    .progress-bar{
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg,var(--accent),var(--accent2));
+      transition:width .35s ease;
+    }
+
+    .question-box{
+      margin-top:22px;
+      background:linear-gradient(180deg,var(--panel-2) 0%, #1d242d 100%);
+      border:1px solid rgba(255,255,255,.04);
+      border-radius:16px;
+      padding:18px;
+    }
+
+    .question-meta{
+      color:var(--accent);
+      font-size:12px;
+      font-weight:700;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      margin-bottom:10px;
+    }
+
+    .question{
+      font-size:24px;
+      line-height:1.5;
+      margin:0;
+      min-height:96px;
+    }
+
+    .choices{
+      margin-top:18px;
+      display:grid;
+      gap:12px;
+    }
+
+    .choice{
+      width:100%;
+      text-align:left;
+      background:#12171d;
+      color:var(--text);
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:16px 16px;
+      cursor:pointer;
+      transition:.18s ease;
+      font-size:15px;
+      line-height:1.5;
+    }
+
+    .choice:hover{
+      transform:translateY(-1px);
+      border-color:var(--accent);
+      background:#161d25;
+    }
+
+    .choice strong{
+      display:block;
+      color:#fff;
+      font-size:16px;
+      margin-bottom:4px;
+    }
+
+    .side-title{
+      font-size:16px;
+      font-weight:700;
+      margin:0 0 12px;
+    }
+
+    .log-list{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      max-height:520px;
+      overflow:auto;
+      padding-right:4px;
+    }
+
+    .log-item{
+      border:1px solid rgba(255,255,255,.05);
+      background:#141920;
+      border-radius:14px;
+      padding:12px;
+    }
+
+    .log-q{
+      font-size:13px;
+      color:var(--muted);
+      margin-bottom:8px;
+      line-height:1.5;
+    }
+
+    .log-a{
+      font-size:14px;
+      color:var(--text);
+      font-weight:600;
+      line-height:1.5;
+      margin-bottom:8px;
+    }
+
+    .tag-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+    }
+
+    .tag{
+      font-size:11px;
+      border-radius:999px;
+      padding:5px 8px;
+      background:#202733;
+      color:#dce7f2;
+      border:1px solid rgba(255,255,255,.05);
+    }
+
+    .empty{
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.7;
+      background:#141920;
+      border-radius:14px;
+      padding:14px;
+      border:1px dashed rgba(255,255,255,.08);
+    }
+
+    .result{
+      display:none;
+      margin-top:18px;
+      gap:18px;
+    }
+
+    .result.show{
+      display:grid;
+    }
+
+    .result-head{
+      background:linear-gradient(180deg,#222b35 0%, #1a2128 100%);
+      border-radius:16px;
+      padding:18px;
+      border:1px solid rgba(255,255,255,.05);
+    }
+
+    .result-kicker{
+      color:var(--accent);
+      font-size:12px;
+      font-weight:700;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      margin-bottom:8px;
+    }
+
+    .result-type{
+      font-size:32px;
+      margin:0 0 8px;
+    }
+
+    .result-desc{
+      color:var(--muted);
+      line-height:1.8;
+      font-size:15px;
+      margin:0;
+    }
+
+    .metrics{
+      display:grid;
+      gap:12px;
+      margin-top:14px;
+    }
+
+    .metric{
+      background:#12171d;
+      border:1px solid rgba(255,255,255,.05);
+      border-radius:14px;
+      padding:12px;
+    }
+
+    .metric-top{
+      display:flex;
+      justify-content:space-between;
+      margin-bottom:8px;
+      font-size:13px;
+      color:var(--muted);
+    }
+
+    .metric strong{
+      color:var(--text);
+      font-size:14px;
+    }
+
+    .bar{
+      width:100%;
+      height:12px;
+      background:#0d1116;
+      border-radius:999px;
+      overflow:hidden;
+    }
+
+    .bar-fill{
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg,var(--accent),var(--accent2));
+      transition:width .6s ease;
+    }
+
+    .analysis-box{
+      background:#141920;
+      border:1px solid rgba(255,255,255,.05);
+      border-radius:16px;
+      padding:16px;
+    }
+
+    .analysis-box h3{
+      margin:0 0 10px;
+      font-size:16px;
+    }
+
+    .analysis-box p{
+      margin:0;
+      color:var(--muted);
+      line-height:1.8;
+      font-size:14px;
+    }
+
+    .action-row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:14px;
+    }
+
+    .btn{
+      appearance:none;
+      border:none;
+      border-radius:12px;
+      padding:12px 16px;
+      cursor:pointer;
+      font-weight:700;
+      font-size:14px;
+      transition:.18s ease;
+    }
+
+    .btn-primary{
+      background:linear-gradient(90deg,var(--accent),var(--accent2));
+      color:#0f1419;
+    }
+
+    .btn-secondary{
+      background:#1d2430;
+      color:var(--text);
+      border:1px solid rgba(255,255,255,.06);
+    }
+
+    .btn:hover{
+      transform:translateY(-1px);
+    }
+
+    .footer-note{
+      margin-top:18px;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.7;
+    }
+
+    @media (max-width: 900px){
+      .app{
+        grid-template-columns: 1fr;
+      }
+      .question{
+        min-height:auto;
+        font-size:22px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="card">
+      <div class="section">
+        <div class="header">
+          <div>
+            <h1 class="title">意思決定ログ可視化ゲーム</h1>
+            <p class="sub">
+              いくつかの場面で選択を重ねると、あなたの判断傾向を可視化します。
+              正解を当てるゲームではなく、<strong>どう選ぶか</strong>を観察するためのプロトタイプです 🧠
+            </p>
+          </div>
+          <div class="badge">単一HTMLプロトタイプ</div>
+        </div>
+
+        <div class="progress-wrap">
+          <div class="progress-top">
+            <span id="progressLabel">進行 0 / 8</span>
+            <span id="phaseLabel">準備中</span>
+          </div>
+          <div class="progress">
+            <div id="progressBar" class="progress-bar"></div>
+          </div>
+        </div>
+
+        <div id="gameArea">
+          <div class="question-box">
+            <div class="question-meta">Decision Scene</div>
+            <h2 id="questionText" class="question">スタートすると質問が表示されます。</h2>
+            <div id="choices" class="choices"></div>
+            <div class="action-row">
+              <button id="startBtn" class="btn btn-primary">ゲーム開始</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="resultArea" class="result">
+          <div class="result-head">
+            <div class="result-kicker">Decision Type</div>
+            <h2 id="resultType" class="result-type">---</h2>
+            <p id="resultDesc" class="result-desc"></p>
+
+            <div class="metrics" id="metrics"></div>
+          </div>
+
+          <div class="analysis-box">
+            <h3>ログから見える傾向</h3>
+            <p id="analysisText"></p>
+
+            <div class="action-row">
+              <button id="restartBtn" class="btn btn-primary">もう一度プレイ</button>
+              <button id="toggleLogBtn" class="btn btn-secondary">ログを見る / 隠す</button>
+            </div>
+
+            <div class="footer-note">
+              ※ この版は「判断の方向性」をざっくり可視化する試作です。<br>
+              設問追加、分岐、時間制限、ストーリー化、レポート出力などに拡張できます。
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="logCard">
+      <div class="section">
+        <h2 class="side-title">選択ログ</h2>
+        <div id="logList" class="log-list">
+          <div class="empty">
+            まだログはありません。<br>
+            プレイを始めると、各選択の意図タグがここに蓄積されます。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const questions = [
+      {
+        text: "納期直前。品質に不安があるが、予定通り出せば売上は守れる。どうする？",
+        choices: [
+          {
+            title: "予定通り出す",
+            desc: "短期成果を優先して公開する",
+            scores: { speed: 2, shortTerm: 2, efficiency: 1, structure: 0, caution: -1, empathy: -1 },
+            tags: ["短期優先", "実行", "スピード"]
+          },
+          {
+            title: "公開を少し遅らせる",
+            desc: "信頼や品質を守るために調整する",
+            scores: { caution: 2, longTerm: 2, empathy: 1, structure: 1, speed: -1 },
+            tags: ["慎重", "長期優先", "品質"]
+          }
+        ]
+      },
+      {
+        text: "チーム内で衝突が起きた。すぐに結論を出す？ まず背景を聞く？",
+        choices: [
+          {
+            title: "先に結論を出す",
+            desc: "停滞を防ぐため方向を決める",
+            scores: { speed: 2, efficiency: 2, empathy: -1, structure: 0, caution: -1 },
+            tags: ["即断", "効率", "前進"]
+          },
+          {
+            title: "まず背景を聞く",
+            desc: "関係と構造を把握してから判断する",
+            scores: { empathy: 2, structure: 2, caution: 1, longTerm: 1 },
+            tags: ["傾聴", "構造把握", "関係重視"]
+          }
+        ]
+      },
+      {
+        text: "新しいアイデアが浮かんだ。まだ粗いが面白い。どう扱う？",
+        choices: [
+          {
+            title: "まず試作する",
+            desc: "考えすぎず小さく形にする",
+            scores: { speed: 2, bold: 2, shortTerm: 1, caution: -1 },
+            tags: ["試作先行", "大胆", "探索"]
+          },
+          {
+            title: "整理してから出す",
+            desc: "筋道を作ってから見せる",
+            scores: { structure: 2, caution: 2, longTerm: 1, bold: -1 },
+            tags: ["整理", "慎重", "設計"]
+          }
+        ]
+      },
+      {
+        text: "AIがそれっぽい答えを出した。どうする？",
+        choices: [
+          {
+            title: "土台として使う",
+            desc: "叩き台にして自分で調整する",
+            scores: { efficiency: 1, structure: 1, independence: 1, longTerm: 1 },
+            tags: ["補助利用", "編集", "主体性"]
+          },
+          {
+            title: "かなり信じて進める",
+            desc: "速度を優先してそのまま採用する",
+            scores: { speed: 2, efficiency: 2, independence: -2, shortTerm: 1 },
+            tags: ["高速化", "依存寄り", "即採用"]
+          }
+        ]
+      },
+      {
+        text: "成果を出しているが、チームの疲弊が見えてきた。どう動く？",
+        choices: [
+          {
+            title: "今は成果を優先する",
+            desc: "この局面を乗り切ることを優先する",
+            scores: { shortTerm: 2, efficiency: 2, empathy: -1, longTerm: -1 },
+            tags: ["短期成果", "圧力耐性", "継続出力"]
+          },
+          {
+            title: "負荷を下げる再設計をする",
+            desc: "続けられる構造に作り直す",
+            scores: { structure: 2, empathy: 2, longTerm: 2, speed: -1 },
+            tags: ["再設計", "持続性", "配慮"]
+          }
+        ]
+      },
+      {
+        text: "会議であなたの案が否定された。反応は？",
+        choices: [
+          {
+            title: "その場で切り返す",
+            desc: "意図を説明し、押し返す",
+            scores: { bold: 2, speed: 1, independence: 1, empathy: -1 },
+            tags: ["反論", "前面対応", "自立"]
+          },
+          {
+            title: "一度引いて観察する",
+            desc: "相手の立場や構造を見てから動く",
+            scores: { caution: 2, structure: 2, empathy: 1, speed: -1 },
+            tags: ["観察", "状況分析", "慎重"]
+          }
+        ]
+      },
+      {
+        text: "新しいメンバーが入った。即戦力として扱う？ 余白を与える？",
+        choices: [
+          {
+            title: "役割を即明確にする",
+            desc: "責任範囲を決め、すぐ回す",
+            scores: { efficiency: 2, structure: 1, speed: 1, empathy: -1 },
+            tags: ["役割明確化", "即稼働", "効率"]
+          },
+          {
+            title: "観察期間を設ける",
+            desc: "特性を見てから配置する",
+            scores: { empathy: 2, caution: 1, structure: 2, longTerm: 1 },
+            tags: ["観察期間", "適性配置", "長期視点"]
+          }
+        ]
+      },
+      {
+        text: "最後にひとつ。あなたにとって良い判断とは？",
+        choices: [
+          {
+            title: "早く前に進める判断",
+            desc: "停滞を減らし、動きを作ること",
+            scores: { speed: 2, efficiency: 2, shortTerm: 1 },
+            tags: ["前進", "速度", "実務"]
+          },
+          {
+            title: "後で崩れにくい判断",
+            desc: "関係や構造も含めて持続すること",
+            scores: { longTerm: 2, structure: 2, caution: 1, empathy: 1 },
+            tags: ["持続性", "構造", "安定"]
+          }
+        ]
+      }
+    ];
+
+    const state = {
+      current: -1,
+      logs: [],
+      totals: {
+        speed: 0,
+        caution: 0,
+        bold: 0,
+        structure: 0,
+        empathy: 0,
+        efficiency: 0,
+        shortTerm: 0,
+        longTerm: 0,
+        independence: 0
+      }
+    };
+
+    const metricsMap = [
+      { key: "speed", label: "スピード志向" },
+      { key: "caution", label: "慎重性" },
+      { key: "structure", label: "構造把握" },
+      { key: "empathy", label: "関係配慮" },
+      { key: "efficiency", label: "効率志向" },
+      { key: "longTerm", label: "長期視点" },
+      { key: "independence", label: "主体性" },
+      { key: "bold", label: "大胆さ" }
+    ];
+
+    const ui = {
+      startBtn: document.getElementById("startBtn"),
+      restartBtn: document.getElementById("restartBtn"),
+      questionText: document.getElementById("questionText"),
+      choices: document.getElementById("choices"),
+      progressLabel: document.getElementById("progressLabel"),
+      phaseLabel: document.getElementById("phaseLabel"),
+      progressBar: document.getElementById("progressBar"),
+      logList: document.getElementById("logList"),
+      resultArea: document.getElementById("resultArea"),
+      resultType: document.getElementById("resultType"),
+      resultDesc: document.getElementById("resultDesc"),
+      metrics: document.getElementById("metrics"),
+      analysisText: document.getElementById("analysisText"),
+      toggleLogBtn: document.getElementById("toggleLogBtn"),
+      logCard: document.getElementById("logCard")
+    };
+
+    function resetGame() {
+      state.current = -1;
+      state.logs = [];
+      state.totals = {
+        speed: 0,
+        caution: 0,
+        bold: 0,
+        structure: 0,
+        empathy: 0,
+        efficiency: 0,
+        shortTerm: 0,
+        longTerm: 0,
+        independence: 0
+      };
+
+      ui.resultArea.classList.remove("show");
+      ui.questionText.textContent = "スタートすると質問が表示されます。";
+      ui.choices.innerHTML = "";
+      ui.progressLabel.textContent = `進行 0 / ${questions.length}`;
+      ui.phaseLabel.textContent = "準備中";
+      ui.progressBar.style.width = "0%";
+      ui.logList.innerHTML = `
+        <div class="empty">
+          まだログはありません。<br>
+          プレイを始めると、各選択の意図タグがここに蓄積されます。
+        </div>
+      `;
+      ui.startBtn.style.display = "inline-block";
+    }
+
+    function startGame() {
+      state.current = 0;
+      ui.startBtn.style.display = "none";
+      renderQuestion();
+      updateProgress();
+    }
+
+    function renderQuestion() {
+      const q = questions[state.current];
+      ui.phaseLabel.textContent = "プレイ中";
+      ui.questionText.textContent = q.text;
+      ui.choices.innerHTML = "";
+
+      q.choices.forEach((choice, index) => {
+        const btn = document.createElement("button");
+        btn.className = "choice";
+        btn.innerHTML = `<strong>${choice.title}</strong><span>${choice.desc}</span>`;
+        btn.addEventListener("click", () => selectChoice(index));
+        ui.choices.appendChild(btn);
+      });
+    }
+
+    function selectChoice(index) {
+      const q = questions[state.current];
+      const c = q.choices[index];
+
+      Object.keys(c.scores).forEach(key => {
+        state.totals[key] = (state.totals[key] || 0) + c.scores[key];
+      });
+
+      state.logs.push({
+        question: q.text,
+        answer: c.title,
+        desc: c.desc,
+        tags: c.tags
+      });
+
+      renderLog();
+      state.current++;
+
+      if (state.current >= questions.length) {
+        finishGame();
+      } else {
+        renderQuestion();
+        updateProgress();
+      }
+    }
+
+    function updateProgress() {
+      const done = Math.min(state.current, questions.length);
+      const percent = (done / questions.length) * 100;
+      ui.progressLabel.textContent = `進行 ${done} / ${questions.length}`;
+      ui.progressBar.style.width = `${percent}%`;
+    }
+
+    function renderLog() {
+      ui.logList.innerHTML = "";
+
+      state.logs.forEach((log, i) => {
+        const item = document.createElement("div");
+        item.className = "log-item";
+        item.innerHTML = `
+          <div class="log-q">Q${i + 1}. ${log.question}</div>
+          <div class="log-a">→ ${log.answer}</div>
+          <div class="tag-row">
+            ${log.tags.map(tag => `<span class="tag">${tag}</span>`).join("")}
+          </div>
+        `;
+        ui.logList.appendChild(item);
+      });
+    }
+
+    function getType() {
+      const t = state.totals;
+
+      if (t.structure >= 8 && t.longTerm >= 6 && t.caution >= 4) {
+        return {
+          name: "構造観察型",
+          desc: "あなたは目の前の出来事を単発で処理するより、背景の構造や再現性を見ようとするタイプです。急いで勝つより、後で崩れにくい設計を選びやすい傾向があります。"
+        };
+      }
+
+      if (t.speed >= 8 && t.efficiency >= 7 && t.shortTerm >= 4) {
+        return {
+          name: "高速実行型",
+          desc: "あなたは停滞を嫌い、まず動かすことで状況を前に進めるタイプです。粗さを許容してでも試し、結果から修正していく判断に強みがあります。"
+        };
+      }
+
+      if (t.empathy >= 6 && t.structure >= 5 && t.longTerm >= 5) {
+        return {
+          name: "調停設計型",
+          desc: "あなたは人間関係と構造の両方を見ながら判断するタイプです。誰か一人の正しさではなく、続く形に整える感覚が強めです。"
+        };
+      }
+
+      if (t.bold >= 4 && t.speed >= 5 && t.independence >= 1) {
+        return {
+          name: "直感突破型",
+          desc: "あなたは局面を見て、自分の判断で切り込むタイプです。完全な確証がなくても前進を作れる一方、周辺への配慮は意識して補うとさらに強くなります。"
+        };
+      }
+
+      return {
+        name: "均衡運用型",
+        desc: "あなたは極端に寄らず、状況に応じて判断を調整するタイプです。爆発力は控えめでも、大崩れしにくく実務では安定感が出やすいです。"
+      };
+    }
+
+    function buildAnalysis(typeName) {
+      const t = state.totals;
+      const tendencies = [];
+
+      if (t.structure > t.speed) tendencies.push("勢いだけで進むより、構造を掴んでから動く傾向");
+      if (t.speed > t.caution) tendencies.push("慎重さより前進を優先しやすい傾向");
+      if (t.longTerm >= t.shortTerm) tendencies.push("短期成果より、後で崩れにくい形を重視する傾向");
+      if (t.empathy >= 4) tendencies.push("対人面の摩擦コストを見て判断する傾向");
+      if (t.independence < 0) tendencies.push("便利な補助に乗るのが上手い一方、外部判断への依存が増えやすい傾向");
+      if (t.bold >= 3) tendencies.push("局面で踏み込む力がある傾向");
+
+      const lead = `今回の結果は「${typeName}」。`;
+      const body = tendencies.length
+        ? tendencies.join("。") + "。"
+        : "大きな偏りは少なく、状況適応型の判断が目立ちました。";
+
+      return `${lead}${body}`;
+    }
+
+    function finishGame() {
+      ui.phaseLabel.textContent = "分析完了";
+      ui.progressLabel.textContent = `進行 ${questions.length} / ${questions.length}`;
+      ui.progressBar.style.width = "100%";
+      ui.choices.innerHTML = "";
+
+      const type = getType();
+      ui.resultType.textContent = type.name;
+      ui.resultDesc.textContent = type.desc;
+      ui.analysisText.textContent = buildAnalysis(type.name);
+
+      renderMetrics();
+      ui.resultArea.classList.add("show");
+    }
+
+    function renderMetrics() {
+      ui.metrics.innerHTML = "";
+
+      const normalized = {};
+      metricsMap.forEach(m => {
+        const raw = state.totals[m.key] || 0;
+        const score = Math.max(0, Math.min(100, 50 + raw * 8));
+        normalized[m.key] = score;
+      });
+
+      metricsMap.forEach(m => {
+        const wrap = document.createElement("div");
+        wrap.className = "metric";
+        wrap.innerHTML = `
+          <div class="metric-top">
+            <strong>${m.label}</strong>
+            <span>${normalized[m.key]}</span>
+          </div>
+          <div class="bar">
+            <div class="bar-fill" style="width:${normalized[m.key]}%"></div>
+          </div>
+        `;
+        ui.metrics.appendChild(wrap);
+      });
+    }
+
+    ui.startBtn.addEventListener("click", startGame);
+    ui.restartBtn.addEventListener("click", resetGame);
+    ui.toggleLogBtn.addEventListener("click", () => {
+      ui.logCard.style.display = ui.logCard.style.display === "none" ? "block" : "none";
+    });
+
+    resetGame();
+  </script>
+</body>
+</html>
